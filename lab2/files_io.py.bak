@@ -1,0 +1,93 @@
+import os, datetime as dt
+from pathlib import Path
+import pandas as pd
+
+DATA_DIR = Path(os.getenv("DATA_DIR", "lab2/data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+LEADS_CSV  = DATA_DIR / "leads.csv"
+EVENTS_CSV = DATA_DIR / "events.csv"
+
+LEAD_HEADERS  = ["id","tg_id","username","full_name","email","topic","message","status","created_at"]
+EVENT_HEADERS = ["ts","event","tg_id","username","note"]
+
+def _ensure_files():
+    for path, headers in [(LEADS_CSV, LEAD_HEADERS),(EVENTS_CSV, EVENT_HEADERS)]:
+        if not path.exists():
+            pd.DataFrame(columns=headers).to_csv(path, index=False)
+
+def log_event(event: str, tg_id: int|None, username: str|None, note: str=""):
+    _ensure_files()
+    row = {
+        "ts": dt.datetime.now().isoformat(timespec="seconds"),
+        "event": event,
+        "tg_id": tg_id or "",
+        "username": username or "",
+        "note": note or "",
+    }
+    df = pd.read_csv(EVENTS_CSV)
+    df.loc[len(df)] = row
+    df.to_csv(EVENTS_CSV, index=False)
+
+def add_lead(tg_id: int, username: str|None, full_name: str, email: str, topic: str, message: str):
+    _ensure_files()
+    df = pd.read_csv(LEADS_CSV)
+    new_id = (df["id"].max() + 1) if not df.empty else 1
+    row = {
+        "id": new_id,
+        "tg_id": tg_id,
+        "username": username or "",
+        "full_name": full_name,
+        "email": email,
+        "topic": topic,
+        "message": message,
+        "status": "new",
+        "created_at": dt.datetime.now().isoformat(timespec="seconds"),
+    }
+    df.loc[len(df)] = row
+    df.to_csv(LEADS_CSV, index=False)
+    return new_id
+
+def list_leads(limit: int=10, status: str|None=None):
+    _ensure_files()
+    df = pd.read_csv(LEADS_CSV)
+    if df.empty: return []
+    if status:
+        df = df[df["status"].str.lower()==status.lower()]
+    df = df.sort_values("id", ascending=False).head(limit)
+    return df[["id","full_name","email","topic","status","created_at"]].values.tolist()
+
+def set_status(lead_id: int, status: str) -> bool:
+    _ensure_files()
+    df = pd.read_csv(LEADS_CSV)
+    if df.empty: return False
+    mask = df["id"] == lead_id
+    if not mask.any(): return False
+    df.loc[mask, "status"] = status
+    df.to_csv(LEADS_CSV, index=False)
+    return True
+
+def find_leads(**filters):
+    _ensure_files()
+    df = pd.read_csv(LEADS_CSV)
+    if df.empty: return []
+    if filters.get("status"):
+        df = df[df["status"].str.contains(filters["status"], case=False, na=False)]
+    if filters.get("topic"):
+        df = df[df["topic"].str.contains(filters["topic"], case=False, na=False)]
+    if filters.get("email_substring"):
+        df = df[df["email"].str.contains(filters["email_substring"], case=False, na=False)]
+    if filters.get("name_substring"):
+        df = df[df["full_name"].str.contains(filters["name_substring"], case=False, na=False)]
+    df = df.sort_values("id", ascending=False)
+    return df[["id","full_name","email","topic","status","created_at"]].values.tolist()
+
+def export_excel(out_dir: str="lab2/export"):
+    _ensure_files()
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    df = pd.read_csv(LEADS_CSV)
+    if df.empty:
+        return None
+    stamp = dt.datetime.now().strftime("%Y%m%d")
+    out_path = Path(out_dir) / f"leads_{stamp}.xlsx"
+    df.to_excel(out_path, index=False)
+    return out_path

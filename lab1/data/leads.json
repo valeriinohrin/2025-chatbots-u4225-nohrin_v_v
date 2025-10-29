@@ -1,0 +1,25 @@
+{"type": "event", "stage": "start", "uid": 614135809, "ts": 1761307714}
+{"type": "event", "stage": "consent_yes", "uid": 614135809, "ts": 1761307736}
+{"type": "event", "stage": "gender", "uid": 614135809, "ts": 1761307743}
+{"type": "event", "stage": "popularity", "uid": 614135809, "ts": 1761307745}
+{"type": "event", "stage": "criterion_ok", "uid": 614135809, "ts": 1761307756}
+{"type": "event", "stage": "email_ok", "uid": 614135809, "ts": 1761307776}
+{"type": "lead", "state": 4, "consent": true, "gender": "male", "popularity": "rare", "criterion": "Распространенность и созвучие с фамилией", "email": "v@mail.ru", "uid": 614135809, "ts": 1761307776}
+{"type": "event", "stage": "start", "uid": 614135809, "ts": 1761309156}
+{"type": "event", "stage": "consent_yes", "uid": 614135809, "ts": 1761309162}
+{"type": "event", "stage": "gender", "uid": 614135809, "ts": 1761309164}
+{"type": "event", "stage": "popularity", "uid": 614135809, "ts": 1761309167}
+{"type": "event", "stage": "criterion_ok", "uid": 614135809, "ts": 1761309175}
+{"type": "event", "stage": "email_ok", "uid": 614135809, "ts": 1761309188}
+{"type": "lead", "state": 4, "consent": true, "gender": "male", "popularity": "popular", "criterion": "созвучие", "email": "v@mail.ru", "uid": 614135809, "ts": 1761309188}
+{"type": "event", "stage": "start", "uid": 614135809, "ts": 1761309624}
+{"type": "event", "stage": "consent_yes", "uid": 614135809, "ts": 1761309674}
+{"type": "event", "stage": "start", "uid": 614135809, "ts": 1761309701}
+{"type": "event", "stage": "consent_no", "uid": 614135809, "ts": 1761309704}
+{"type": "event", "stage": "start", "uid": 614135809, "ts": 1761309707}
+{"type": "event", "stage": "consent_yes", "uid": 614135809, "ts": 1761309710}
+{"type": "event", "stage": "gender", "uid": 614135809, "ts": 1761309721}
+{"type": "event", "stage": "popularity", "uid": 614135809, "ts": 1761309729}
+{"type": "event", "stage": "criterion_ok", "uid": 614135809, "ts": 1761309737}
+{"type": "event", "stage": "email_ok", "uid": 614135809, "ts": 1761309767}
+{"type": "lead", "state": 4, "consent": true, "gender": "female", "popularity": "rare", "criterion": "Тест", "email": "name@example.ru.", "uid": 614135809, "ts": 1761309767}

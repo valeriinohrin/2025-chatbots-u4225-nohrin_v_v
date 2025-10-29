@@ -1,0 +1,13 @@
+﻿ФИО,Email,Пол,Дата,Статус
+﻿id,tg_id,username,full_name,email,topic,message,status,created_at
+1,111,tester,Test User,test@example.com,Оплата,Проверка записи,in_work,2025-10-28T12:14:44
+2,123,tester,Иван Иванов,test@example.com,Оплата,Проверка,in_work,2025-10-28T12:52:38
+3,111,user1,Иван Иванов,ivan@test.com,Оплата,Не пришёл чек,new,2025-10-28T13:49:31
+4,222,user2,Мария Петрова,maria@test.com,Доступ,Не открывается урок,in_work,2025-10-28T13:49:31
+5,614135809,valerius_spb,Иван Иванов,test@example.com,Оплата,Не пришёл чек,in_work,2025-10-28T14:01:23
+6,614135809,valerius_spb,Иван иванов,test@example.com,Курс,gender=Мальчик,new,2025-10-28T14:13:43
+7,614135809,valerius_spb,Иван Иванов,test@example.com,Курс,gender=Девочка,new,2025-10-28T14:26:35
+8,614135809,valerius_spb,Тест Тестов,Test,Курс,gender=Мальчик,new,2025-10-28T14:41:42
+9,614135809,valerius_spb,Тест,dskndc@mail.ru,Доступ (мальчик),Идрис тест,new,2025-10-28T15:11:18
+10,123,user,Иван Иванов,test@example.com,Курс (мальчик),,new,2025-10-28T15:34:42
+11,614135809,valerius_spb,fff,cjncdskcnsd@mail.ru,,,new,2025-10-28T15:56:35

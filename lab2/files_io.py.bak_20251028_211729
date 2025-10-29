@@ -1,0 +1,100 @@
+import os
+import csv
+from pathlib import Path
+from datetime import datetime
+
+DATA_DIR = Path(os.getenv("DATA_DIR", "lab2/data")).resolve()
+EXPORT_DIR = DATA_DIR / "export"
+LEADS_CSV = DATA_DIR / "leads.csv"
+
+# гарантируем папки и заголовок CSV
+def _ensure_layout():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+    if not LEADS_CSV.exists():
+        with LEADS_CSV.open("w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(["id","fio","email","gender","status","created_at"])
+
+_ensure_layout()
+
+
+def _read_all():
+    rows = []
+    if LEADS_CSV.exists():
+        with LEADS_CSV.open("r", newline="", encoding="utf-8-sig") as f:
+            r = csv.DictReader(f)
+            for row in r:
+                row["id"] = int(row["id"])
+                rows.append(row)
+    return rows
+
+
+def _write_all(rows):
+    with LEADS_CSV.open("w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=["id","fio","email","gender","status","created_at"])
+        w.writeheader()
+        for row in rows:
+            w.writerow(row)
+
+
+def add_lead(fio: str, email: str, gender: str) -> int:
+    rows = _read_all()
+    new_id = (max([r["id"] for r in rows]) + 1) if rows else 1
+    rows.append({
+        "id": new_id,
+        "fio": fio.strip(),
+        "email": email.strip().lower(),
+        "gender": gender.strip(),
+        "status": "new",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
+    _write_all(rows)
+    return new_id
+
+
+def list_leads(limit: int = 10, status: str | None = None):
+    rows = sorted(_read_all(), key=lambda r: r["id"], reverse=True)
+    if status:
+        rows = [r for r in rows if r["status"] == status]
+    return rows[:limit]
+
+
+def find_leads(query: str | None = None, status: str | None = None):
+    rows = _read_all()
+    if status:
+        rows = [r for r in rows if r["status"] == status]
+    if query:
+        q = query.strip().lower()
+        rows = [r for r in rows if q in r["fio"].lower() or q in r["email"].lower()]
+    return rows
+
+
+ALLOWED_STATUSES = {"new", "in_work", "done", "rejected"}
+
+def set_status(lead_id: int, status: str) -> bool:
+    status = status.strip()
+    if status not in ALLOWED_STATUSES:
+        return False
+    rows = _read_all()
+    ok = False
+    for r in rows:
+        if r["id"] == int(lead_id):
+            r["status"] = status
+            ok = True
+            break
+    if ok:
+        _write_all(rows)
+    return ok
+
+
+def export_csv() -> Path:
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    out = EXPORT_DIR / f"leads_{ts}.csv"
+    rows = _read_all()
+    with out.open("w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=["id","fio","email","gender","status","created_at"])
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+    return out

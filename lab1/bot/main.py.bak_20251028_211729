@@ -1,0 +1,241 @@
+# -*- coding: utf-8 -*-
+"""
+lab1/bot/main.py — стабильный вариант без ручного event loop
+- /start: согласие -> ФИО -> пол -> email -> сохранение -> ссылка на курс
+- /inbox, /find, /set_status: админ-команды
+- /export_csv и /export: отправка CSV через InputFile
+- /refresh_menu (админ): обновить кнопки-команды бота
+"""
+
+import os
+import logging
+from pathlib import Path
+from typing import Tuple
+
+from dotenv import load_dotenv
+
+from telegram import Update, BotCommand, InputFile
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, ConversationHandler,
+    ContextTypes, filters,
+)
+
+# ---------- логирование ----------
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s | %(message)s")
+log = logging.getLogger("bot")
+
+# ---------- доступ к lab2 ----------
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in os.sys.path:
+    os.sys.path.insert(0, str(ROOT))
+
+from lab2.files_io import (  # type: ignore
+    add_lead, list_leads, find_leads, set_status, export_csv, ALLOWED_STATUSES
+)
+
+# ---------- .env ----------
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ADMIN_TELEGRAM_ID = os.getenv("ADMIN_TELEGRAM_ID", "").strip()
+COURSE_URL = os.getenv("COURSE_URL", "").strip()
+if not BOT_TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN не найден в .env")
+
+# ---------- утилиты ----------
+def is_admin(update: Update) -> bool:
+    try:
+        return str(update.effective_user.id) == ADMIN_TELEGRAM_ID
+    except Exception:
+        return False
+
+def fmt_row(r: Tuple) -> str:
+    _id = r[0] if len(r) > 0 else "?"
+    fio = r[1] if len(r) > 1 else ""
+    email = r[2] if len(r) > 2 else ""
+    gender = r[3] if len(r) > 3 else ""
+    status = r[4] if len(r) > 4 else ""
+    created = r[5] if len(r) > 5 else ""
+    return f"#{_id} | {fio} | {email} | {gender} | {status} | {created}"
+
+# ---------- FSM для /start ----------
+ASK_CONSENT, ASK_FIO, ASK_GENDER, ASK_EMAIL = range(4)
+
+async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await update.message.reply_text("Нужно согласие на обработку ПДн. Напиши: «соглашаюсь».")
+    return ASK_CONSENT
+
+async def got_consent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").strip().lower()
+    if "соглаша" not in text:
+        await update.message.reply_text("Напиши «соглашаюсь», если согласен(на).")
+        return ASK_CONSENT
+    await update.message.reply_text("Ок. Введи ФИО (например: Иванов Иван Иванович).")
+    return ASK_FIO
+
+async def got_fio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    fio = (update.message.text or "").strip()
+    if len(fio) < 3:
+        await update.message.reply_text("Слишком короткое ФИО. Введи ещё раз.")
+        return ASK_FIO
+    context.user_data["fio"] = fio
+    await update.message.reply_text("Пол ребёнка? «мальчик» или «девочка».")
+    return ASK_GENDER
+
+async def got_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    g = (update.message.text or "").strip().lower()
+    if g.startswith("м"):
+        gender = "boy"
+    elif g.startswith("д"):
+        gender = "girl"
+    else:
+        await update.message.reply_text("Укажи «мальчик» или «девочка».")
+        return ASK_GENDER
+    context.user_data["gender"] = gender
+    await update.message.reply_text("Укажи e-mail (например: test@example.com).")
+    return ASK_EMAIL
+
+async def got_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    email = (update.message.text or "").strip()
+    if "@" not in email or "." not in email:
+        await update.message.reply_text("Похоже на неверный e-mail. Введи корректный адрес.")
+        return ASK_EMAIL
+    fio = context.user_data.get("fio", "")
+    gender = context.user_data.get("gender", "")
+    _id = add_lead(
+        user_id=update.effective_user.id,
+        username=update.effective_user.username or "",
+        fio=fio,
+        email=email,
+        topic="Доступ к курсу",
+        details=f"ОПП согласие получено; gender={gender}",
+    )
+    log.info("lead saved: id=%s fio=%s email=%s gender=%s", _id, fio, email, gender)
+    url = COURSE_URL or "https://example.com/course"
+    await update.message.reply_text(f"✅ Заявка сохранена! Ссылка на курс:\n{url}")
+    return ConversationHandler.END
+
+async def cancel_conv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Диалог отменён.")
+    return ConversationHandler.END
+
+# ---------- админ-команды ----------
+async def inbox_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        await update.message.reply_text("Команда недоступна.")
+        return
+    rows = list_leads(limit=10)
+    if not rows:
+        await update.message.reply_text("Заявок пока нет.")
+        return
+    await update.message.reply_text("Последние заявки:\n" + "\n".join(fmt_row(r) for r in rows))
+
+async def find_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        await update.message.reply_text("Команда недоступна.")
+        return
+    q = " ".join(context.args).strip()
+    if not q:
+        await update.message.reply_text("Использование: /find Иван")
+        return
+    rows = find_leads(q)
+    if not rows:
+        await update.message.reply_text("Ничего не найдено.")
+        return
+    await update.message.reply_text(f"Найдено ({len(rows)}):\n" + "\n".join(fmt_row(r) for r in rows[:20]))
+
+async def set_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        await update.message.reply_text("Команда недоступна.")
+        return
+    if len(context.args) < 2:
+        await update.message.reply_text(f"Формат: /set_status <id> <{'|'.join(ALLOWED_STATUSES)}>")  # noqa
+        return
+    try:
+        lead_id_int = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("id должен быть числом.")
+        return
+    new_status = context.args[1]
+    if new_status not in ALLOWED_STATUSES:
+        await update.message.reply_text(f"Недопустимый статус. Разрешённые: {', '.join(ALLOWED_STATUSES)}")  # noqa
+        return
+    ok = set_status(lead_id_int, new_status)
+    await update.message.reply_text("✅ Статус обновлён." if ok else "Заявка не найдена.")
+
+async def export_csv_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        await update.message.reply_text("Команда недоступна.")
+        return
+    path = Path(export_csv())
+    try:
+        with path.open("rb") as f:
+            await update.message.reply_document(
+                document=InputFile(f, filename=path.name),
+                caption="Выгрузка заявок (CSV).",
+            )
+    except Exception as e:
+        log.exception("export send failed: %s", e)
+        await update.message.reply_text(f"Ошибка отправки файла: {e}")
+
+async def export_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await export_csv_cmd(update, context)
+
+async def refresh_menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Админ: принудительно обновить меню команд. Без post_init и без своего loop."""
+    if not is_admin(update):
+        await update.message.reply_text("Команда недоступна.")
+        return
+    try:
+        await context.bot.set_my_commands(
+            [
+                BotCommand("start", "оформить доступ к курсу"),
+                BotCommand("inbox", "последние заявки (админ)"),
+                BotCommand("find", "поиск заявок (админ)"),
+                BotCommand("set_status", "сменить статус (админ)"),
+                BotCommand("export_csv", "выгрузка заявок (CSV, админ)"),
+                BotCommand("export", "то же, что /export_csv"),
+            ]
+        )
+        await update.message.reply_text("✅ Меню команд обновлено.")
+        log.info("Меню команд обновлено админом.")
+    except Exception as e:
+        log.exception("set_my_commands failed: %s", e)
+        await update.message.reply_text(f"Ошибка обновления меню: {e}")
+
+# ---------- сборка/запуск ----------
+def build_application() -> Application:
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    conv = ConversationHandler(
+        entry_points=[CommandHandler("start", start_cmd)],
+        states={
+            ASK_CONSENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_consent)],
+            ASK_FIO: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_fio)],
+            ASK_GENDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_gender)],
+            ASK_EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_email)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_conv)],
+    )
+    app.add_handler(conv)
+
+    app.add_handler(CommandHandler("inbox", inbox_cmd))
+    app.add_handler(CommandHandler("find", find_cmd))
+    app.add_handler(CommandHandler("set_status", set_status_cmd))
+    app.add_handler(CommandHandler("export_csv", export_csv_cmd))
+    app.add_handler(CommandHandler("export", export_cmd))
+    app.add_handler(CommandHandler("refresh_menu", refresh_menu_cmd))  # ← админ-обновление меню
+    return app
+
+def main():
+    log.info("BOT_TOKEN len=%d", len(BOT_TOKEN))
+    log.info("ADMIN_TELEGRAM_ID = %s", ADMIN_TELEGRAM_ID or "<not set>")
+    log.info("COURSE_URL = %s", COURSE_URL or "<not set>")
+
+    app = build_application()
+    log.info("Бот запущен.")
+    # ВАЖНО: без собственного event loop, пусть PTB всё сделает сам:
+    app.run_polling()   # никаких close_loop / asyncio.run
+
+if __name__ == "__main__":
+    main()

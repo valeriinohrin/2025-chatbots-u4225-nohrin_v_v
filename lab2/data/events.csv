@@ -1,0 +1,13 @@
+﻿ts,event,tg_id,username,note
+2025-10-28T12:14:44,selftest_start,,tester,
+2025-10-28T12:52:38,selftest,,tester,run
+2025-10-28T12:57:02,apply_start,614135809.0,valerius_spb,
+2025-10-28T13:49:31,selftest,,tester,run
+2025-10-28T14:26:26,consent_ok,614135809.0,valerius_spb,agreed
+2025-10-28T14:41:31,consent_ok,614135809.0,valerius_spb,agreed
+2025-10-28T14:41:42,lead_add,614135809.0,valerius_spb,id=8
+2025-10-28T15:10:46,apply_start,614135809.0,valerius_spb,run
+2025-10-28T15:11:18,lead_add,614135809.0,valerius_spb,id=9
+2025-10-28T15:11:19,apply_done,614135809,valerius_spb,lead_id=9
+2025-10-28T15:56:35,lead_created,614135809,valerius_spb,id=11
+2025-10-28T15:56:35,lead_ready,614135809,valerius_spb,id=11
